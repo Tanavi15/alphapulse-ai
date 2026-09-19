@@ -98,6 +98,11 @@ export type WsMessage =
       forecast?: ForecastData;
       signal?: SignalData;
       timestamp: string;
+    }
+  | {
+      type: 'error';
+      message: string;
+      timestamp: string;
     };
 
 export interface OverlayToggles {

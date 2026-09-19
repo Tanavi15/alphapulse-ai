@@ -42,6 +42,12 @@ export function useMarketWebSocket() {
           const msg: WsMessage = JSON.parse(event.data);
           const state = useChartStore.getState();
 
+          if (msg.type === 'error') {
+            console.error('Backend error:', msg.message);
+            store.setWsStatus('stale');
+            return;
+          }
+
           if (msg.type === 'snapshot') {
             state.setCandles(msg.candles);
             state.setForecast(msg.forecast);

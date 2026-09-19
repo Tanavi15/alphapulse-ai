@@ -1,18 +1,26 @@
 /**
- * Central API configuration.
- * In development: uses Vite proxy (localhost:8000 via vite.config.ts)
- * In production: uses VITE_API_URL / VITE_WS_URL environment variables
- *                set in Netlify / Vercel dashboard.
+ * Central API/WebSocket configuration.
+ *
+ * Dev:  Vite proxy forwards /api → localhost:8000 (see vite.config.ts)
+ *       WS connects directly to ws://localhost:8000
+ *
+ * Prod: VITE_API_URL and VITE_WS_URL must be set in your hosting dashboard
+ *       (Netlify → Site config → Environment variables)
+ *       (Vercel  → Project settings → Environment variables)
+ *       (Railway → Service variables)
  */
 
-const isProd = import.meta.env.PROD;
+const VITE_API_URL = import.meta.env.VITE_API_URL as string | undefined;
+const VITE_WS_URL  = import.meta.env.VITE_WS_URL  as string | undefined;
+const isProd       = import.meta.env.PROD === true;
 
-// In dev, Vite proxies /api → localhost:8000, so we use relative URLs.
-// In prod, we need the full Render backend URL from env vars.
-export const API_BASE = isProd
-  ? (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
-  : '';
+// Strip trailing slash
+const clean = (s: string) => s.replace(/\/$/, '');
 
-export const WS_BASE = isProd
-  ? (import.meta.env.VITE_WS_URL ?? `wss://${window.location.hostname}`).replace(/\/$/, '')
+export const API_BASE: string = isProd && VITE_API_URL
+  ? clean(VITE_API_URL)
+  : '';   // empty string = relative URL, works via Vite proxy in dev
+
+export const WS_BASE: string = isProd && VITE_WS_URL
+  ? clean(VITE_WS_URL)
   : `ws://${window.location.hostname}:8000`;

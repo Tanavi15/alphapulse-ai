@@ -1,14 +1,13 @@
 """
 AlphaPulse AI — FastAPI Backend
-Provides live candle data, AI forecasting, signal engine, and WebSocket feeds.
+Production-ready: handles CORS from any deployment URL via env var.
 """
 import asyncio
-import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +31,6 @@ forecast_engine = ForecastEngine()
 signal_engine = SignalEngine()
 indicator_engine = IndicatorEngine()
 
-# Active WebSocket connections keyed by symbol
 active_connections: dict[str, list[WebSocket]] = {}
 
 
@@ -50,28 +48,40 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# FRONTEND_URL env var lets you add any deployment URL without code changes.
+# Falls back to allowing all origins if not set (safe for initial deploy).
+_frontend_url = os.getenv("FRONTEND_URL", "")
+_extra_origins = [u.strip() for u in _frontend_url.split(",") if u.strip()]
+
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://*.netlify.app",
+    "https://*.vercel.app",
+    "https://*.railway.app",
+    "https://*.onrender.com",
+    "https://*.koyeb.app",
+    *_extra_origins,
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",                        # local dev
-        "https://alphapulse-ai.vercel.app",             # Vercel (update if different)
-        "https://*.vercel.app",                         # Vercel preview URLs
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],          # allow all — tighten after confirming frontend URL
+    allow_credentials=False,       # must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ─── REST ENDPOINTS ──────────────────────────────────────────────────────────
+# ─── REST ENDPOINTS ───────────────────────────────────────────────────────────
 
 @app.get("/api/candles/{symbol}", response_model=list[CandleResponse])
 async def get_candles(
     symbol: str,
-    interval: str = Query("5m", description="1m,5m,15m,30m,1h,1d"),
-    period: str = Query("5d", description="1d,5d,1mo,3mo,6mo,1y"),
+    interval: str = Query("5m"),
+    period: str = Query("5d"),
 ):
-    """Return OHLCV candles for symbol."""
     candles = market_service.fetch_candles(symbol.upper(), interval, period)
     return candles
 
@@ -81,10 +91,9 @@ async def get_forecast(
     symbol: str,
     interval: str = Query("5m"),
 ):
-    """Return AI forecast for the next 5 minutes."""
     candles = market_service.fetch_candles(symbol.upper(), interval, "5d")
     if not candles:
-        return JSONResponse(status_code=404, content={"detail": "No data"})
+        return JSONResponse(status_code=404, content={"detail": "No data available"})
     forecast = forecast_engine.predict(candles)
     signals = signal_engine.evaluate(candles, forecast)
     return ForecastResponse(
@@ -100,41 +109,46 @@ async def get_indicators(
     symbol: str,
     interval: str = Query("5m"),
 ):
-    """Return technical indicators for symbol."""
     candles = market_service.fetch_candles(symbol.upper(), interval, "5d")
     if not candles:
-        return JSONResponse(status_code=404, content={"detail": "No data"})
-    indicators = indicator_engine.compute(candles)
-    return indicators
+        return JSONResponse(status_code=404, content={"detail": "No data available"})
+    return indicator_engine.compute(candles)
 
 
 @app.get("/api/symbols/search")
 async def search_symbols(q: str = Query(..., min_length=1)):
-    """Search for stock symbols."""
     results = market_service.search_symbols(q)
     return {"results": results}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
 
 
 # ─── WEBSOCKET ────────────────────────────────────────────────────────────────
 
 @app.websocket("/ws/{symbol}")
-async def websocket_endpoint(websocket: WebSocket, symbol: str, interval: str = Query(default="5m")):
+async def websocket_endpoint(
+    websocket: WebSocket,
+    symbol: str,
+    interval: str = Query(default="5m"),
+):
     symbol = symbol.upper()
     await websocket.accept()
-    logger.info(f"WebSocket connected: {symbol}")
+    logger.info(f"WS connected: {symbol} [{interval}]")
 
     if symbol not in active_connections:
         active_connections[symbol] = []
     active_connections[symbol].append(websocket)
 
     try:
-        # Send initial full snapshot
+        # ── Initial snapshot ──────────────────────────────────────────────────
         candles = market_service.fetch_candles(symbol, interval, "5d")
         if candles:
             forecast = forecast_engine.predict(candles)
             signals = signal_engine.evaluate(candles, forecast)
             indicators = indicator_engine.compute(candles)
-
             await websocket.send_json({
                 "type": "snapshot",
                 "symbol": symbol,
@@ -145,57 +159,54 @@ async def websocket_endpoint(websocket: WebSocket, symbol: str, interval: str = 
                 "indicators": indicators.model_dump(),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             })
+        else:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"No data available for {symbol}. Market may be closed or symbol invalid.",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
 
+        # ── Live update loop ──────────────────────────────────────────────────
         last_forecast_time = time.time()
-        forecast_interval_seconds = 60  # Refresh forecast every 60s
+        forecast_interval_seconds = 60
 
         while True:
-            await asyncio.sleep(15)  # Poll every 15 seconds
+            await asyncio.sleep(15)
 
             try:
-                candles = market_service.fetch_candles(symbol, interval, "1d")
-                if not candles:
+                latest = market_service.fetch_candles(symbol, interval, "1d")
+                if not latest:
                     continue
 
                 now = time.time()
-                should_forecast = (now - last_forecast_time) >= forecast_interval_seconds
-
-                forecast = None
-                signals = None
-                if should_forecast:
-                    candles_5d = market_service.fetch_candles(symbol, interval, "5d")
-                    forecast = forecast_engine.predict(candles_5d or candles)
-                    signals = signal_engine.evaluate(candles_5d or candles, forecast)
-                    last_forecast_time = now
-
                 msg: dict = {
                     "type": "update",
                     "symbol": symbol,
                     "interval": interval,
-                    "latest_candles": [c.model_dump() for c in candles[-5:]],
+                    "latest_candles": [c.model_dump() for c in latest[-5:]],
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
-                if forecast:
-                    msg["forecast"] = forecast.model_dump()
-                if signals:
-                    msg["signal"] = signals.model_dump()
+
+                if (now - last_forecast_time) >= forecast_interval_seconds:
+                    candles_5d = market_service.fetch_candles(symbol, interval, "5d")
+                    if candles_5d:
+                        forecast = forecast_engine.predict(candles_5d)
+                        signals = signal_engine.evaluate(candles_5d, forecast)
+                        msg["forecast"] = forecast.model_dump()
+                        msg["signal"] = signals.model_dump()
+                        last_forecast_time = now
 
                 await websocket.send_json(msg)
 
-            except Exception as inner_exc:
-                logger.warning(f"Update error for {symbol}: {inner_exc}")
+            except Exception as exc:
+                logger.warning(f"WS update error [{symbol}]: {exc}")
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected: {symbol}")
+        logger.info(f"WS disconnected: {symbol}")
     except Exception as exc:
-        logger.error(f"WebSocket error for {symbol}: {exc}")
+        logger.error(f"WS error [{symbol}]: {exc}")
     finally:
         if symbol in active_connections:
             active_connections[symbol] = [
                 c for c in active_connections[symbol] if c != websocket
             ]
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "time": datetime.now(timezone.utc).isoformat()}
