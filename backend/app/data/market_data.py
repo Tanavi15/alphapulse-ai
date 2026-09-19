@@ -1,12 +1,12 @@
 """
-Market Data Service — real OHLCV data, no curl_cffi dependency.
+Market Data Service — real OHLCV data for Indian & global stocks.
 
-Source priority:
-  1. Yahoo Finance v8 chart API via httpx (HTTP/2 + Chrome headers)
-  2. NSE India official chart API via httpx (Indian stocks, no auth)
+Source waterfall (tries each until one succeeds):
+  1. yfinance  — best for local/home networks, handles crumb/cookie automatically
+  2. Yahoo Finance v8 API via httpx  — direct REST call with browser headers
+  3. NSE India official chart API    — Indian stocks only, no auth needed
 
-Works on all cloud platforms (Railway, Render, Fly.io, Koyeb etc.)
-without any native library dependencies.
+No dummy data anywhere.
 """
 import logging
 from datetime import datetime, timezone
@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pandas as pd
+import yfinance as yf
 
 from app.models.schemas import CandleResponse
 
@@ -30,13 +31,11 @@ PERIOD_MAP = {
     "3mo": "3mo", "6mo": "6mo", "1y": "1y",
 }
 
-# Yahoo Finance v8 endpoints (try both for redundancy)
 YF_URLS = [
     "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
     "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}",
 ]
 
-# Headers that mimic a real Chrome browser — Yahoo requires these
 YF_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -49,7 +48,6 @@ YF_HEADERS = {
     "Origin": "https://finance.yahoo.com",
     "Referer": "https://finance.yahoo.com/",
     "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
 }
 
 NSE_HEADERS = {
@@ -74,42 +72,73 @@ def _try_symbols(symbol: str) -> list[str]:
     return [f"{symbol}.NS", f"{symbol}.BO", symbol]
 
 
-def _fetch_yahoo(yf_symbol: str, interval: str, period: str) -> list[CandleResponse]:
-    """Call Yahoo Finance v8 chart API directly with httpx."""
-    params = {
-        "interval": interval,
-        "range": period,
-        "includePrePost": "false",
-        "events": "div,splits",
-    }
+# ── Source 1: yfinance (best for local use) ───────────────────────────────────
 
+def _fetch_yfinance(yf_symbol: str, interval: str, period: str) -> list[CandleResponse]:
+    """Use yfinance which handles Yahoo crumb/cookie automatically."""
+    try:
+        ticker = yf.Ticker(yf_symbol)
+        df = ticker.history(
+            period=period,
+            interval=interval,
+            auto_adjust=True,
+            raise_errors=False,
+        )
+        return _df_to_candles(df)
+    except Exception as exc:
+        logger.debug(f"[yfinance] {yf_symbol}: {exc}")
+        return []
+
+
+def _df_to_candles(df: pd.DataFrame) -> list[CandleResponse]:
+    if df is None or df.empty:
+        return []
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
+    required = {"Open", "High", "Low", "Close", "Volume"}
+    if not required.issubset(set(df.columns)):
+        return []
+    df = df.dropna(subset=["Open", "High", "Low", "Close"])
+    if df.empty:
+        return []
+    if df.index.tzinfo is not None:
+        try:
+            df.index = df.index.tz_convert("Asia/Kolkata")
+        except Exception:
+            pass
+    candles: list[CandleResponse] = []
+    for ts, row in df.iterrows():
+        o, c = float(row["Open"]), float(row["Close"])
+        candles.append(CandleResponse(
+            timestamp=ts.isoformat(),
+            open=round(o, 2),
+            high=round(float(row["High"]), 2),
+            low=round(float(row["Low"]), 2),
+            close=round(c, 2),
+            volume=round(float(row["Volume"]), 0),
+            is_bullish=c >= o,
+        ))
+    return candles
+
+
+# ── Source 2: Yahoo Finance v8 REST API via httpx ─────────────────────────────
+
+def _fetch_yahoo_direct(yf_symbol: str, interval: str, period: str) -> list[CandleResponse]:
+    params = {
+        "interval": interval, "range": period,
+        "includePrePost": "false", "events": "div,splits",
+    }
     for url_tpl in YF_URLS:
         url = url_tpl.format(symbol=yf_symbol)
         try:
-            with httpx.Client(
-                headers=YF_HEADERS,
-                timeout=20,
-                follow_redirects=True,
-            ) as client:
+            with httpx.Client(headers=YF_HEADERS, timeout=20, follow_redirects=True) as client:
                 resp = client.get(url, params=params)
-
-            if resp.status_code != 200:
-                logger.debug(f"[yahoo] {yf_symbol} HTTP {resp.status_code}")
-                continue
-
-            body = resp.text.strip()
-            if not body:
-                logger.debug(f"[yahoo] {yf_symbol} empty body")
-                continue
-
-            candles = _parse_yahoo_json(resp.json(), yf_symbol)
-            if candles:
-                return candles
-
+            if resp.status_code == 200 and resp.text.strip():
+                candles = _parse_yahoo_json(resp.json(), yf_symbol)
+                if candles:
+                    return candles
         except Exception as exc:
-            logger.debug(f"[yahoo] {yf_symbol} @ {url}: {exc}")
-            continue
-
+            logger.debug(f"[yahoo-direct] {yf_symbol}: {exc}")
     return []
 
 
@@ -117,36 +146,26 @@ def _parse_yahoo_json(data: dict, symbol: str) -> list[CandleResponse]:
     try:
         result = data.get("chart", {}).get("result")
         if not result:
-            err = data.get("chart", {}).get("error")
-            logger.debug(f"[yahoo] {symbol} no result, error={err}")
             return []
-
         r = result[0]
         timestamps: list[int] = r.get("timestamp", [])
         quote = (r.get("indicators", {}).get("quote") or [{}])[0]
-
         opens   = quote.get("open",   [])
         highs   = quote.get("high",   [])
         lows    = quote.get("low",    [])
         closes  = quote.get("close",  [])
         volumes = quote.get("volume", [])
-
         if not timestamps or not closes:
             return []
-
         tz_name = r.get("meta", {}).get("exchangeTimezoneName", "Asia/Kolkata")
         try:
             tz = ZoneInfo(tz_name)
         except Exception:
             tz = IST
-
         candles: list[CandleResponse] = []
         for i, ts in enumerate(timestamps):
             try:
-                o = opens[i]
-                h = highs[i]
-                l = lows[i]
-                c = closes[i]
+                o = opens[i]; h = highs[i]; l = lows[i]; c = closes[i]
                 v = volumes[i] if i < len(volumes) else 0
                 if o is None or c is None:
                     continue
@@ -165,24 +184,19 @@ def _parse_yahoo_json(data: dict, symbol: str) -> list[CandleResponse]:
                 continue
         return candles
     except Exception as exc:
-        logger.debug(f"[yahoo parse] {symbol}: {exc}")
+        logger.debug(f"[yahoo-parse] {symbol}: {exc}")
         return []
 
 
-def _fetch_nse(symbol: str, interval: str) -> list[CandleResponse]:
-    """NSE India chart API — works without any API key."""
-    try:
-        with httpx.Client(
-            headers=NSE_HEADERS, timeout=15, follow_redirects=True
-        ) as client:
-            client.get("https://www.nseindia.com/")  # seed cookies
+# ── Source 3: NSE India official chart API ────────────────────────────────────
 
-            is_index = any(
-                symbol.startswith(p) for p in ("NIFTY", "SENSEX", "BANKNIFTY")
-            )
+def _fetch_nse(symbol: str, interval: str) -> list[CandleResponse]:
+    try:
+        with httpx.Client(headers=NSE_HEADERS, timeout=15, follow_redirects=True) as client:
+            client.get("https://www.nseindia.com/")
+            is_index = any(symbol.startswith(p) for p in ("NIFTY", "SENSEX", "BANKNIFTY"))
             params = (
-                {"index": symbol, "indices": "true"}
-                if is_index
+                {"index": symbol, "indices": "true"} if is_index
                 else {"index": f"{symbol}EQN"}
             )
             resp = client.get(
@@ -191,7 +205,6 @@ def _fetch_nse(symbol: str, interval: str) -> list[CandleResponse]:
             )
             if resp.status_code != 200:
                 return []
-
             ticks = resp.json().get("grapthData") or resp.json().get("data") or []
             return _nse_ticks_to_candles(ticks, interval)
     except Exception as exc:
@@ -209,15 +222,10 @@ def _nse_ticks_to_candles(ticks: list, interval: str) -> list[CandleResponse]:
             continue
     if not rows:
         return []
-
-    df = (
-        pd.DataFrame(rows, columns=["ts", "price"])
-        .set_index("ts").sort_index()
-    )
+    df = pd.DataFrame(rows, columns=["ts", "price"]).set_index("ts").sort_index()
     df.index = df.index.tz_convert("Asia/Kolkata")
     rule = f"{interval_min}min" if interval != "1d" else "1D"
     ohlcv = df["price"].resample(rule).ohlc().dropna()
-
     candles: list[CandleResponse] = []
     for ts, row in ohlcv.iterrows():
         o, c = float(row["open"]), float(row["close"])
@@ -229,6 +237,8 @@ def _nse_ticks_to_candles(ticks: list, interval: str) -> list[CandleResponse]:
         ))
     return candles
 
+
+# ── Main service ──────────────────────────────────────────────────────────────
 
 class MarketDataService:
     def __init__(self):
@@ -251,29 +261,37 @@ class MarketDataService:
 
         yf_interval = INTERVAL_MAP.get(interval, "5m")
         yf_period   = PERIOD_MAP.get(period, "5d")
+        candidates  = _try_symbols(symbol)
 
-        # Source 1: Yahoo Finance direct API
-        for sym in _try_symbols(symbol):
-            candles = _fetch_yahoo(sym, yf_interval, yf_period)
+        # ── 1. yfinance (handles cookies/crumbs automatically) ────────────────
+        for sym in candidates:
+            candles = _fetch_yfinance(sym, yf_interval, yf_period)
             if candles:
-                logger.info(f"[yahoo] {len(candles)} candles for {sym}")
+                logger.info(f"[yfinance] {len(candles)} candles for {sym}")
                 self._cache[cache_key] = (now, candles)
                 return candles
 
-        # Source 2: NSE India direct API
+        # ── 2. Yahoo Finance direct REST API ──────────────────────────────────
+        for sym in candidates:
+            candles = _fetch_yahoo_direct(sym, yf_interval, yf_period)
+            if candles:
+                logger.info(f"[yahoo-direct] {len(candles)} candles for {sym}")
+                self._cache[cache_key] = (now, candles)
+                return candles
+
+        # ── 3. NSE India direct API ───────────────────────────────────────────
         candles = _fetch_nse(symbol, yf_interval)
         if candles:
             logger.info(f"[nse] {len(candles)} candles for {symbol}")
             self._cache[cache_key] = (now, candles)
             return candles
 
-        logger.error(f"All sources failed for {symbol}")
+        logger.error(f"All sources failed for {symbol}. Check internet connection.")
         return []
 
     def search_symbols(self, query: str) -> list[dict]:
         results = self._static_symbol_search(query)
         try:
-            import yfinance as yf
             data = yf.Search(query, max_results=10)
             yf_results = []
             for item in data.quotes:

@@ -1,157 +1,199 @@
 # AlphaPulse AI — Professional Trading Terminal
 
-A full-stack AI-powered stock prediction platform built with FastAPI + React/TypeScript.
+An AI-powered stock prediction platform with real-time candlestick charts, AI forecasting, and buy/sell signals.
 
 ---
 
-## Architecture
+## 🚀 How to Run (Anyone can do this in 5 minutes)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                │
-│   React + TypeScript + Vite + ECharts + Zustand                 │
-│   http://localhost:5173                                         │
-└─────────────────────┬───────────────────────────────────────────┘
-                      │  REST + WebSocket
-┌─────────────────────▼───────────────────────────────────────────┐
-│                         BACKEND                                 │
-│   FastAPI + uvicorn                                             │
-│   http://localhost:8000                                         │
-│                                                                 │
-│   MarketDataService  →  yfinance (real NSE/BSE/US data)         │
-│   IndicatorEngine    →  EMA, VWAP, Bollinger, RSI, MACD        │
-│   ForecastEngine     →  Ridge regression on OHLCV features      │
-│   SignalEngine       →  BUY/SELL/HOLD from forecast + ATR       │
-└─────────────────────────────────────────────────────────────────┘
+### Prerequisites
+
+Install these first if you don't have them:
+
+| Tool | Download | Check if installed |
+|------|----------|--------------------|
+| **Python 3.11+** | https://www.python.org/downloads/ | `python --version` |
+| **Node.js 18+** | https://nodejs.org | `node --version` |
+| **Git** | https://git-scm.com | `git --version` |
+
+---
+
+### Step 1 — Clone the repository
+
+```bash
+git clone https://github.com/Tanavi15/alphapulse-ai.git
+cd alphapulse-ai
 ```
 
 ---
 
-## Quick Start
+### Step 2 — Start the Backend
 
-### Terminal 1 — Backend
+Open a terminal and run:
 
-```powershell
-.\start_backend.ps1
-```
-
-Or manually:
-
-```powershell
+```bash
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Terminal 2 — Frontend
-
-```powershell
-.\start_frontend.ps1
+You should see:
+```
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000
 ```
 
-Or manually:
+---
 
-```powershell
+### Step 3 — Start the Frontend
+
+Open a **second terminal** (keep the first one running) and run:
+
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+You should see:
+```
+VITE ready in 500ms
+➜ Local: http://localhost:5173/
+```
 
 ---
 
-## Chart Features
+### Step 4 — Open the app
 
-| Feature | Description |
-|---------|-------------|
-| **Candlestick chart** | Real OHLCV candles from Yahoo Finance (NSE/BSE/US) |
-| **AI Forecast** | Ridge regression on EMA/RSI/BB/Volume features |
-| **Confidence Band** | Empirical 95% CI from model residuals + √t scaling |
-| **Predicted Candle** | Semi-transparent OHLC projection at T+5min |
-| **NOW Divider** | Animated vertical boundary at current time |
-| **BUY/SELL markers** | Plotted on actual candles when signal fires |
-| **Target / Stop levels** | Horizontal lines computed from ATR |
-| **Volume pane** | Color-coded bar chart below main chart |
-| **Technical indicators** | EMA 9/21/50, VWAP, Bollinger Bands, RSI, MACD |
-| **Crosshair tooltip** | Full OHLCV + indicator values on hover |
-| **Forecast history** | Past prediction accuracy tracking |
-| **Fullscreen mode** | `⊡` button or `Esc` to exit |
-| **Timeframe switching** | 1M / 5M / 15M / 30M / 1H / 1D |
-| **Symbol search** | Live search via yfinance |
-| **WebSocket live updates** | Real-time candle + forecast refresh |
+Open your browser and go to:
+
+```
+http://localhost:5173
+```
+
+The app will load with a live candlestick chart for RELIANCE by default.
 
 ---
 
-## AI Model
+## 📈 How to Use
 
-The forecast engine uses **Ridge Regression** trained on a walk-forward window of real OHLCV data.
+| Action | How |
+|--------|-----|
+| **Change stock** | Type any NSE symbol in the search box (e.g. TCS, INFY, HDFCBANK) |
+| **Change timeframe** | Click 1M / 5M / 15M / 30M / 1H / 1D buttons |
+| **Toggle indicators** | Click EMA 21, VWAP, RSI, MACD etc. in the toolbar |
+| **View AI forecast** | Always visible on the right side of the chart |
+| **Fullscreen** | Click the ⊡ button top right |
+| **Past predictions** | Toggle "Past AI" in the indicator toolbar |
 
-**Features:**
-- Fractional returns (1, 3, 5 bars)
-- EMA ratio (9/21)
-- RSI (14)
-- Bollinger Band position
-- Volume Z-score
-- Candle body ratio
-- ATR normalized
+### Indian Stock Symbols
 
-**Confidence Intervals:**
-Derived from in-sample residual standard deviation, scaled by √t (random-walk uncertainty growth).
-
-> The model is explicitly labeled "ENSEMBLE v1.2" in the UI and the confidence band includes a tooltip explaining that it represents model uncertainty, not guaranteed price ranges.
-
----
-
-## Indian Stock Symbols
-
-| Stock | Symbol to enter |
-|-------|----------------|
-| Reliance | `RELIANCE` |
-| TCS | `TCS` |
+| Company | Symbol |
+|---------|--------|
+| Reliance Industries | `RELIANCE` |
+| Tata Consultancy Services | `TCS` |
 | HDFC Bank | `HDFCBANK` |
 | Infosys | `INFY` |
-| Nifty 50 | `^NSEI` |
+| ICICI Bank | `ICICIBANK` |
+| State Bank of India | `SBIN` |
+| Bajaj Finance | `BAJFINANCE` |
+| Nifty 50 Index | `^NSEI` |
 | Sensex | `^BSESN` |
 
-US stocks work too: `AAPL`, `TSLA`, `NVDA`, etc.
+### US Stock Symbols
+
+| Company | Symbol |
+|---------|--------|
+| Apple | `AAPL` |
+| Tesla | `TSLA` |
+| NVIDIA | `NVDA` |
+| Microsoft | `MSFT` |
 
 ---
 
-## Project Structure
+## 🏗️ Project Structure
 
 ```
-Stocks_prediction/
-├── backend/
+alphapulse-ai/
+├── backend/                    ← FastAPI Python backend
 │   ├── app/
-│   │   ├── main.py              ← FastAPI app + WebSocket
+│   │   ├── main.py             ← API routes + WebSocket
 │   │   ├── data/
-│   │   │   └── market_data.py   ← yfinance data service
+│   │   │   └── market_data.py  ← Live data (yfinance + NSE)
 │   │   ├── engine/
-│   │   │   ├── forecast.py      ← AI prediction engine
-│   │   │   ├── signals.py       ← BUY/SELL/HOLD signal engine
-│   │   │   └── indicators.py    ← Technical indicators
+│   │   │   ├── forecast.py     ← AI prediction model
+│   │   │   ├── signals.py      ← BUY/SELL/HOLD signals
+│   │   │   └── indicators.py   ← EMA, RSI, MACD, VWAP etc.
 │   │   └── models/
-│   │       └── schemas.py       ← Pydantic models
+│   │       └── schemas.py      ← Data models
 │   └── requirements.txt
-├── frontend/
+│
+├── frontend/                   ← React + TypeScript frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── CandlestickChart.tsx   ← ★ Hero chart component
-│   │   │   ├── SignalCard.tsx         ← AI signal + trade levels
-│   │   │   ├── ForecastStatus.tsx     ← Live status bar
-│   │   │   ├── IndicatorToolbar.tsx   ← Overlay toggles
-│   │   │   ├── StockHeader.tsx        ← Symbol + price header
-│   │   │   └── ForecastHistory.tsx    ← Past prediction accuracy
+│   │   │   ├── CandlestickChart.tsx  ← Main chart (ECharts)
+│   │   │   ├── SignalCard.tsx        ← AI signal display
+│   │   │   ├── StockHeader.tsx       ← Symbol search + price
+│   │   │   ├── ForecastStatus.tsx    ← Live/stale indicator
+│   │   │   ├── IndicatorToolbar.tsx  ← Toggle overlays
+│   │   │   └── ForecastHistory.tsx   ← Past predictions
 │   │   ├── hooks/
-│   │   │   └── useMarketWebSocket.ts  ← WS connection manager
-│   │   ├── store/
-│   │   │   └── chartStore.ts          ← Zustand global state
-│   │   └── types/
-│   │       └── index.ts               ← TypeScript interfaces
-│   ├── package.json
-│   └── vite.config.ts
-├── start_backend.ps1
-├── start_frontend.ps1
+│   │   │   └── useMarketWebSocket.ts ← Live data connection
+│   │   └── store/
+│   │       └── chartStore.ts         ← App state
+│   └── package.json
+│
 └── README.md
 ```
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 + TypeScript + Vite |
+| Charts | Apache ECharts |
+| State | Zustand |
+| Backend | FastAPI + Python 3.11 |
+| Live Data | WebSocket |
+| Market Data | yfinance (Yahoo Finance) + NSE India API |
+| AI Model | Ridge Regression on OHLCV features |
+| Indicators | EMA, VWAP, Bollinger Bands, RSI, MACD |
+
+---
+
+## ❗ Troubleshooting
+
+**Chart shows "Fetching live market data…"**
+→ Make sure the backend is running on port 8000
+→ Run: `python -m uvicorn app.main:app --port 8000 --reload` inside the `backend/` folder
+
+**`pip install` fails**
+→ Make sure you have Python 3.11+: `python --version`
+→ Try: `pip install --upgrade pip` then retry
+
+**`npm install` fails**
+→ Make sure you have Node.js 18+: `node --version`
+→ Download from https://nodejs.org
+
+**Market is closed / no data**
+→ NSE is open Mon–Fri 9:15 AM – 3:30 PM IST
+→ Outside market hours, the chart shows the most recent historical data — this is normal
+
+**Port already in use**
+→ Backend: change port with `--port 8001`
+→ Frontend: Vite will automatically use the next available port
+
+---
+
+## 📝 Notes
+
+- All data is **real** — fetched live from Yahoo Finance and NSE India
+- The AI model is trained on actual historical OHLCV data
+- Confidence intervals are derived from real model residuals
+- No dummy or simulated data anywhere
+
+---
+
+*Built with ❤️ using FastAPI + React + ECharts*
