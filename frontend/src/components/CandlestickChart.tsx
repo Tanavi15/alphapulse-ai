@@ -118,7 +118,7 @@ export function buildChartOption(opts: BuildChartOptions): EChartsOption {
   const candleData = candles.map((c) => [c.open, c.close, c.low, c.high]);
 
   // ─── Volume data ───────────────────────────────────────────────────────────
-  const volumeData = candles.map((c, i) => ({
+  const volumeData = candles.map((c) => ({
     value: c.volume,
     itemStyle: { color: c.is_bullish ? COLORS.volumeBull : COLORS.volumeBear },
   }));
@@ -516,7 +516,7 @@ export function buildChartOption(opts: BuildChartOptions): EChartsOption {
       yAxisIndex: 0,
       data: forecastLineData,
       showSymbol: true,
-      symbolSize: (val: unknown, params: { dataIndex: number }) => {
+      symbolSize: (_val: unknown, params: { dataIndex: number }) => {
         // Only show symbol at the final forecast point
         return params.dataIndex === forecastLineData.length - 1 ? 10 : 0;
       },
@@ -535,11 +535,13 @@ export function buildChartOption(opts: BuildChartOptions): EChartsOption {
       },
       endLabel: {
         show: true,
-        formatter: (params: { value: number }) =>
-          `● AI\n₹${formatPrice(params.value)}`,
+        formatter: (params: echarts.CallbackDataParams) => {
+          const v = Array.isArray(params.value) ? params.value[0] : params.value;
+          return `● AI\n₹${formatPrice(Number(v ?? 0))}`;
+        },
         color: fColor,
         fontSize: 10,
-        fontWeight: 'bold',
+        fontWeight: 'bold' as const,
       },
     });
 

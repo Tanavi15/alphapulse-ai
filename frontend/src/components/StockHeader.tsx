@@ -1,7 +1,7 @@
 /**
  * Stock Header — symbol selector, live price, change, timeframe buttons
  */
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { useChartStore } from '@/store/chartStore';
 import type { Interval } from '@/types';

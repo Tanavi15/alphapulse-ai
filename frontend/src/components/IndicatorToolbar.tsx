@@ -1,7 +1,6 @@
 /**
  * Indicator toolbar — toggles for all chart overlays
  */
-import React from 'react';
 import { useChartStore } from '@/store/chartStore';
 import type { OverlayToggles } from '@/types';
 import styles from './IndicatorToolbar.module.css';

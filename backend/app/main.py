@@ -52,7 +52,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",                        # local dev
+        "https://alphapulse-ai.vercel.app",             # Vercel (update if different)
+        "https://*.vercel.app",                         # Vercel preview URLs
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

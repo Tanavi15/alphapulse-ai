@@ -1,7 +1,6 @@
 /**
  * AI Signal Card — shows current BUY/SELL/HOLD signal with full trade details
  */
-import React from 'react';
 import { useChartStore } from '@/store/chartStore';
 import styles from './SignalCard.module.css';
 
@@ -14,8 +13,6 @@ const SIGNAL_COLORS: Record<string, string> = {
 export default function SignalCard() {
   const signal = useChartStore((s) => s.signal);
   const forecast = useChartStore((s) => s.forecast);
-  const symbol = useChartStore((s) => s.symbol);
-
   if (!signal || !forecast) {
     return (
       <div className={styles.card}>

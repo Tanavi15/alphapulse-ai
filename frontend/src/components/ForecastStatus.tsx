@@ -1,13 +1,11 @@
 /**
  * Forecast Status Bar — shows live/stale status, model info, next update countdown
  */
-import React from 'react';
 import { useChartStore } from '@/store/chartStore';
 import styles from './ForecastStatus.module.css';
 
 export default function ForecastStatus() {
   const wsStatus = useChartStore((s) => s.wsStatus);
-  const lastUpdate = useChartStore((s) => s.lastUpdate);
   const forecastUpdatedAt = useChartStore((s) => s.forecastUpdatedAt);
   const nextForecastIn = useChartStore((s) => s.nextForecastIn);
   const forecast = useChartStore((s) => s.forecast);

@@ -1,7 +1,6 @@
 /**
  * Forecast History Panel — shows past AI predictions vs actual outcomes
  */
-import React from 'react';
 import { useChartStore } from '@/store/chartStore';
 import styles from './ForecastHistory.module.css';
 

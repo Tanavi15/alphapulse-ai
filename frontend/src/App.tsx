@@ -1,7 +1,7 @@
 /**
  * AlphaPulse AI — Main Application
  */
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useChartStore } from '@/store/chartStore';
 import { useMarketWebSocket } from '@/hooks/useMarketWebSocket';
 import StockHeader from '@/components/StockHeader';
