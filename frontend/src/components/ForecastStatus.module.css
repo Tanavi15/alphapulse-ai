@@ -1,0 +1,73 @@
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  color: #e6edf3;
+  letter-spacing: 0.04em;
+}
+
+.statusDot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dotLive {
+  background: #3fb950;
+  box-shadow: 0 0 6px #3fb950;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.dotStale {
+  background: #f85149;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.sep {
+  width: 1px;
+  height: 14px;
+  background: #30363d;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.label {
+  color: #8b949e;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.staleWarning {
+  color: #f85149;
+  font-weight: bold;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

@@ -1,0 +1,202 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  position: relative;
+  z-index: 10;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Search */
+.searchWrap {
+  position: relative;
+}
+
+.searchInput {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #e6edf3;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  width: 140px;
+  outline: none;
+  transition: border-color 0.2s;
+  text-transform: uppercase;
+}
+
+.searchInput:focus {
+  border-color: #58a6ff;
+}
+
+.dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  min-width: 260px;
+  background: #1c2128;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  z-index: 100;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.dropdownItem:hover {
+  background: #2d333b;
+}
+
+.dropSym {
+  color: #58a6ff;
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 70px;
+}
+
+.dropName {
+  color: #8b949e;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spinner {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8b949e;
+  font-size: 14px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: translateY(-50%) rotate(0deg); }
+  to   { transform: translateY(-50%) rotate(360deg); }
+}
+
+/* Price */
+.priceBlock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.price {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 22px;
+  font-weight: bold;
+  color: #e6edf3;
+  letter-spacing: -0.02em;
+}
+
+.change {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+}
+
+.up { color: #3fb950; }
+.down { color: #f85149; }
+
+/* Live badge */
+.liveBadge {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+}
+
+.liveActive {
+  color: #3fb950;
+  border-color: #3fb950;
+  background: rgba(63, 185, 80, 0.1);
+}
+
+.liveStale {
+  color: #f85149;
+  border-color: #f85149;
+  background: rgba(248, 81, 73, 0.1);
+}
+
+/* Interval buttons */
+.intervalGroup {
+  display: flex;
+  gap: 2px;
+}
+
+.ivBtn {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.03em;
+}
+
+.ivBtn:hover {
+  border-color: #58a6ff;
+  color: #e6edf3;
+}
+
+.ivActive {
+  background: rgba(88, 166, 255, 0.15);
+  border-color: #58a6ff;
+  color: #58a6ff;
+  font-weight: bold;
+}
+
+/* Fullscreen button */
+.fsBtn {
+  font-size: 18px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.fsBtn:hover {
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
