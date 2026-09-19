@@ -17,7 +17,7 @@
 
 import { useEffect, useRef, useMemo } from 'react';
 import * as echarts from 'echarts';
-import type { ECharts, EChartsOption } from 'echarts';
+import type { ECharts, EChartsOption, CallbackDataParams } from 'echarts';
 import { useChartStore } from '@/store/chartStore';
 import type { Candle, ForecastData, SignalData, IndicatorData, OverlayToggles, HistoricalForecast } from '@/types';
 
@@ -535,7 +535,7 @@ export function buildChartOption(opts: BuildChartOptions): EChartsOption {
       },
       endLabel: {
         show: true,
-        formatter: (params: echarts.CallbackDataParams) => {
+        formatter: (params: CallbackDataParams) => {
           const v = Array.isArray(params.value) ? params.value[0] : params.value;
           return `● AI\n₹${formatPrice(Number(v ?? 0))}`;
         },

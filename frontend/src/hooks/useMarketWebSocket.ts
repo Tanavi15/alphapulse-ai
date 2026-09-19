@@ -1,8 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useChartStore } from '@/store/chartStore';
 import type { WsMessage, HistoricalForecast } from '@/types';
-
-const WS_BASE = import.meta.env.VITE_WS_URL ?? `ws://${window.location.hostname}:8000`;
+import { WS_BASE } from '@/config';
 const RECONNECT_DELAY = 3000;
 const FORECAST_COUNTDOWN = 60;
 

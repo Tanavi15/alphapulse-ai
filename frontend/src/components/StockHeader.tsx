@@ -6,6 +6,7 @@ import axios from 'axios';
 import { useChartStore } from '@/store/chartStore';
 import type { Interval } from '@/types';
 import styles from './StockHeader.module.css';
+import { API_BASE } from '@/config';
 
 const INTERVALS: { value: Interval; label: string }[] = [
   { value: '1m',  label: '1M' },
@@ -53,8 +54,7 @@ export default function StockHeader() {
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const apiBase = import.meta.env.VITE_API_URL ?? '';
-        const res = await axios.get<{ results: SearchResult[] }>(`${apiBase}/api/symbols/search?q=${encodeURIComponent(query)}`);
+        const res = await axios.get<{ results: SearchResult[] }>(`${API_BASE}/api/symbols/search?q=${encodeURIComponent(query)}`);
         setResults(res.data.results);
       } catch { setResults([]); }
       setSearching(false);
